@@ -2,15 +2,14 @@ var express = require('express');
 var router = express.Router();
 
 const Tweet = require('../models/tweets');
-const User = require('../models/User');
+const User = require('../models/users');
+const Hashtag = require('../models/hashtags');
 const {checkBody} = require("../modules/checkBody");
-
-Tweet.find({}).then(data => console.log(data));
 
 router.get("/all", async (req, res) => {
   
     try{
-        const tweets = await Tweet.find({});
+        const tweets = await Tweet.find({}).populate('author');
         res.json({tweets : tweets});
     }catch(err){
         res.json({ result: false, message: err.message });
@@ -29,14 +28,12 @@ router.post("/new", async (req, res) => {
 
     try{
 
-        const author = await User.Find({username : username});
+        const author = await User.findOne({username : username});
 
         if(!author){
             res.json({result: false, error: "User not found"});
             return;
-        }
-
-        // TODO : traiter les hashtag avec une regex et les enregistrer en BDD
+        }    
 
         const newTweet = new Tweet({
             author : author.id, 
@@ -48,42 +45,97 @@ router.post("/new", async (req, res) => {
 
         await newTweet.save();
 
-        const tweets = Tweet.Find();
+        // Check for hashtages and add them in bdd
+        const pattern = /#(\w+)/g;
+        const hashtags = message.match(pattern);
 
-        res.json({result: true, tweets: tweets});
+        if(hashtags){ // message contains hashtags
+            for(let tag of hashtags){
+
+                const lowerTag = tag.slice(1).toLowerCase();
+
+                const hashtag = await Hashtag.findOne({ tag: lowerTag });
+
+                // hashtag doesn't exist yet - create it
+                if(!hashtag){
+                    const newHashtag = new Hashtag({
+                        tag: lowerTag,
+                        tweets : [newTweet._id]
+                    });
+
+                    await newHashtag.save();
+                }
+                else{
+                    await Hashtag.updateOne({tag: lowerTag}, { $addToSet: { tweets: newTweet._id } } );
+                }
+            }
+        }
+
+
+        res.json({result: true, message : "New tweet created"});
     }catch(err){
         res.json({ result: false, message: err.message });
     }
 });
 
+router.put("/like/:id", async (req, res) =>{
 
-/*router.post("/confirmCart", async (req, res) => {
+    const id = req.params.id;
+
+    if(!id){
+        return res.json({result: false, message: "Missing param id!"});
+    }
+
+    if(!checkBody(req.body, ["username"])){
+        res.json({result: false, error: "Missing or empty fields"});
+        return;
+    }
 
     try{
-        await Booking.updateMany({paid: false},{paid: true});
 
-        res.json({result: true, message: "Order confirmed"});
+        const tweet = await Tweet.findOne({_id: id});
+        if (!tweet) return res.json({ result: false, error: "Tweet not found" });
+
+        const user = await User.findOne({username: req.body.username})
+        if (!user) return res.json({ result: false, error: "User not found" });
+
+        if(tweet.likedBy.some(e => e._id = user._id)){ // user has already liked the tweet
+            await Tweet.updateOne(
+                {_id : id}, 
+                { $pull: { likedBy: user._id } }
+            );
+            console.log("unliked");
+        }else{  
+            await Tweet.updateOne(
+                {_id : id}, 
+                { $addToSet: { likedBy: user._id } }
+            );
+            console.log("liked");
+        }
+
+        res.json({result: true});
     }catch(err){
         res.json({ result: false, message: err.message });
     }
 });
 
-router.delete("/removeFromCart/:tripId", async (req, res) =>{
 
-    const id = req.params.tripId;
+router.delete("/:id", async (req, res) =>{
+
+    const id = req.params.id;
 
     if(!id){
         return res.json({result: false, message: "Missing param id!"});
     }
 
     try{
-        await Booking.deleteOne({trip : id});
+        await Tweet.deleteOne({_id : id});
 
-        res.json({result: true, message: "Trip deleted from cart"});
+        res.json({result: true, message: "Tweet deleted"});
     }catch(err){
         res.json({ result: false, message: err.message });
     }
-});*/
+});
 
 
 module.exports = router;
