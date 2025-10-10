@@ -46,7 +46,8 @@ router.post("/new", async (req, res) => {
         await newTweet.save();
 
         // Check for hashtages and add them in bdd
-        const pattern = /#(\w+)/g;
+        //const pattern = /#(\w+)/g;
+        const pattern = /#([\p{L}\p{N}_]+)/gu;
         const hashtags = message.match(pattern);
 
         if(hashtags){ // message contains hashtags
