@@ -10,7 +10,7 @@ router.get("/all", async (req, res) => {
   
     try{
         const tweets = await Tweet.find({}).populate('author');
-        res.json({tweets : tweets});
+        res.json({result: true, tweets : tweets});
     }catch(err){
         res.json({ result: false, message: err.message });
     }
