@@ -116,6 +116,11 @@ router.delete("/:id", async (req, res) => {
   try {
     await Tweet.deleteOne({ _id: id });
 
+    await Hashtag.updateMany(
+      { tweets: id },
+      { $pull: { tweets: id } }
+    );
+
     res.json({ result: true, message: "Tweet deleted" });
   } catch (err) {
     res.json({ result: false, message: err.message });
