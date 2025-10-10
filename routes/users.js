@@ -53,5 +53,27 @@ router.post("/signin", (req, res) => {
   });
 });
 
+router.get("/:username", async (req, res) => {
+  
+  const username = req.params.username;
+
+  if(!username){
+    return res.json({result: false, message: "Missing param username!"});
+  }
+
+  try{
+      const user = await User.findOne({username : username});
+      if(user){
+        res.json({result: true, user: user});
+      }
+      else{
+        res.json({result: false, message: 'User not found'});
+      }
+
+  }catch(err){
+      res.json({ result: false, message: err.message });
+  }
+});
+
 router.post("/logout", (req, res) => {});
 module.exports = router;

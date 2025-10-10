@@ -9,7 +9,7 @@ const {checkBody} = require("../modules/checkBody");
 router.get("/all", async (req, res) => {
   
     try{
-        const tweets = await Tweet.find({}).populate('author');
+        const tweets = await Tweet.find({}).populate('author').populate('likedBy');
         res.json({result: true, tweets : tweets});
     }catch(err){
         res.json({ result: false, message: err.message });
@@ -94,24 +94,30 @@ router.put("/like/:id", async (req, res) =>{
 
     try{
 
-        const tweet = await Tweet.findOne({_id: id});
-        if (!tweet) return res.json({ result: false, error: "Tweet not found" });
+        const tweet = await Tweet.findOne({_id: id}).populate('likedBy');
+        if (!tweet) {
+            console.log("tweet not found");
+            return res.json({ result: false, error: "Tweet not found" });
+        }
 
         const user = await User.findOne({username: req.body.username})
         if (!user) return res.json({ result: false, error: "User not found" });
 
-        if(tweet.likedBy.some(e => e._id = user._id)){ // user has already liked the tweet
+
+        const hasLiked = tweet.likedBy.some(e => e._id.equals(user._id));
+
+        if(hasLiked){ // user has already liked the tweet
             await Tweet.updateOne(
                 {_id : id}, 
                 { $pull: { likedBy: user._id } }
             );
-            console.log("unliked");
+            console.log("unliked by " + req.body.username);
         }else{  
             await Tweet.updateOne(
                 {_id : id}, 
                 { $addToSet: { likedBy: user._id } }
             );
-            console.log("liked");
+            console.log("liked by " + req.body.username);
         }
 
         res.json({result: true});
